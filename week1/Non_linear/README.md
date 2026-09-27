@@ -30,9 +30,5 @@ Simple circuit with voltage source Vs with a resistor in series with a Diode.
 - Exponent is capped at 40 to avoid overflow.
 - Initial guess `x = [0;0;0]` works for forward bias.
 - Sign of `i_vs` depends on chosen convention.
-## DC operating point
-<img width="1757" height="1158" alt="DC_operating point" src="https://github.com/user-attachments/assets/ff0ff31d-84cd-4ff8-a543-171a65c94346" />
 
-## Newton Convergence
-<img width="1787" height="1154" alt="Newton_convergence" src="https://github.com/user-attachments/assets/208ee95c-87ca-418e-9d48-3144d609f886" />
 

@@ -5,6 +5,7 @@ R  = 1000;
 Is = 1e-9;     
 Vt = 0.02585;   
 G = 1/R;
+n=1; %ideal diode
 
 %Newton's method
 maxIter = 100;

@@ -1,6 +1,4 @@
-%% DC Analysis using Modified Nodal Analysis (MNA)
-% Week 1 - Linear Circuit Prototype
-%
+%% DC Analysis 
 % Circuit:
 %
 %        R1
@@ -21,26 +19,18 @@
 clear;
 clc;
 
-%% Circuit Parameters
 
-Vs = 10;           % Voltage source [V]
+Vs = 10;         
 
-R1 = 1e3;          % R1 [Ohm]
-R2 = 2e3;          % R2 [Ohm]
+R1 = 1e3;          
+R2 = 2e3;          
 
 G1 = 1 / R1;
 G2 = 1 / R2;
 
-%% MNA System
-%
-% Unknown vector:
-%
+
 % x = [Vin; Vout; I_Vs]
-%
-% Vin  : voltage at input node
-% Vout : voltage at output node
 % I_Vs : current through the voltage source
-%
 % A*x = b
 
 A = [
@@ -55,17 +45,12 @@ b = [
     Vs
     ];
 
-%% Solve MNA Equations
-
 x = A \ b;
-
-%% Extract Results
 
 Vin = x(1);
 Vout = x(2);
 I_Vs = x(3);
 
-%% Display Results
 
 fprintf('DC Analysis Results\n');
 fprintf('-------------------\n');
@@ -73,8 +58,6 @@ fprintf('-------------------\n');
 fprintf('Vin  = %.4f V\n', Vin);
 fprintf('Vout = %.4f V\n', Vout);
 fprintf('I_Vs = %.4f mA\n', I_Vs * 1e3);
-
-%% Calculate Branch Currents
 
 I_R1 = (Vin - Vout) / R1;
 I_R2 = Vout / R2;

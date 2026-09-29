@@ -11,7 +11,6 @@
 % AC voltage source: 10 V
 % The circuit is analyzed over a range of frequencies.
 % x = [Vin; Vout; I_Vs]
-%
 % A*x = b
 
 clear;

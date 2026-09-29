@@ -13,6 +13,10 @@
 %   10 V step at t = 0
 % Transient analysis is performed using the
 % Backward Euler method.
+% 
+% x = [Vin; Vout; I_Vs]
+% The capacitor contribution includes
+% the previous time-step voltage Vout_prev.
 
 clear;
 clc;
@@ -49,12 +53,6 @@ for k = 1:length(t)
     end
 
     Gc = C / dt;
-
-
-    % x = [Vin; Vout; I_Vs]
-    %
-    % The capacitor contribution includes
-    % the previous time-step voltage Vout_prev.
 
     A = [
          G1,          -G1,             1;

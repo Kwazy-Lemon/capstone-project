@@ -1,8 +1,7 @@
 %% DC Analysis 
 % Circuit:
 %
-%        R1
-% Vin ---/\/\--- Vout
+% Vin ---R1--- Vout
 %  |             |
 %  |             R2
 %  |             |

@@ -1,6 +1,4 @@
-%% Transient Analysis using Modified Nodal Analysis (MNA)
-% Week 1 - Linear Circuit Prototype
-%
+%% Transient Analysis
 % Circuit:
 %
 %                 R1 = 1 kOhm
@@ -13,7 +11,6 @@
 % Input:
 %   0 V before t = 0
 %   10 V step at t = 0
-%
 % Transient analysis is performed using the
 % Backward Euler method.
 
@@ -21,53 +18,39 @@ clear;
 clc;
 close all;
 
-%% Circuit Parameters
+Vs = 10;                
 
-Vs = 10;                 % Step voltage [V]
-
-R1 = 1e3;                % R1 [Ohm]
-R2 = 2e3;                % R2 [Ohm]
-C  = 100e-9;             % C [F]
+R1 = 1e3;               
+R2 = 2e3;             
+C  = 100e-9;            
 
 G1 = 1 / R1;
 G2 = 1 / R2;
 
-%% Time Parameters
-
 t_start = 0;
-t_end   = 5e-3;          % 5 ms
-dt      = 1e-5;          % 10 us
+t_end   = 5e-3;        
+dt      = 1e-5;        
 
 t = t_start:dt:t_end;
 
-%% Preallocate Results
 
 Vout = zeros(size(t));
 Vin  = zeros(size(t));
 I_Vs = zeros(size(t));
 
-%% Initial Condition
-
 Vout_prev = 0;
-
-%% Transient Analysis
 
 for k = 1:length(t)
 
-    % Step voltage source
     if t(k) >= 0
         Vs_current = Vs;
     else
         Vs_current = 0;
     end
 
-    % Capacitor conductance using Backward Euler
     Gc = C / dt;
 
-    % MNA system
-    %
-    % Unknown vector:
-    %
+
     % x = [Vin; Vout; I_Vs]
     %
     % The capacitor contribution includes
@@ -85,17 +68,12 @@ for k = 1:length(t)
         Vs_current
     ];
 
-    %% Solve MNA System
-
     x = A \ b;
-
-    %% Store Results
 
     Vin(k)  = x(1);
     Vout(k) = x(2);
     I_Vs(k) = x(3);
 
-    %% Update Previous Time-Step Voltage
 
     Vout_prev = Vout(k);
 

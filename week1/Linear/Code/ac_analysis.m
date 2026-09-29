@@ -10,6 +10,9 @@
 %
 % AC voltage source: 10 V
 % The circuit is analyzed over a range of frequencies.
+% x = [Vin; Vout; I_Vs]
+%
+% A*x = b
 
 clear;
 clc;
@@ -34,11 +37,6 @@ I_Vs = zeros(size(f));
 for k = 1:length(f)
 
     Yc = 1j * w(k) * C;
-    
-    % x = [Vin; Vout; I_Vs]
-    %
-    % A*x = b
-
     A = [
          G1,       -G1,             1;
         -G1,   G1 + G2 + Yc,        0;
@@ -61,8 +59,6 @@ end
 Vout_mag = abs(Vout);
 Vout_phase = angle(Vout) * 180 / pi;
 
-%% Plot Magnitude Response
-
 figure;
 
 semilogx(f, Vout_mag, 'LineWidth', 1.5);
@@ -73,7 +69,6 @@ xlabel('Frequency (Hz)');
 ylabel('|V_{out}| (V)');
 title('AC Frequency Response - Magnitude');
 
-%% Plot Phase Response
 
 figure;
 

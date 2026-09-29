@@ -1,6 +1,4 @@
-%% AC Analysis using Modified Nodal Analysis (MNA)
-% Week 1 - Linear Circuit Prototype
-%
+%% AC Analysis
 % Circuit:
 %
 %                 R1 = 1 kOhm
@@ -11,45 +9,32 @@
 %                              +---- C = 100 nF ----- GND
 %
 % AC voltage source: 10 V
-%
 % The circuit is analyzed over a range of frequencies.
 
 clear;
 clc;
 close all;
 
-%% Circuit Parameters
+Vs = 10;               
 
-Vs = 10;                 % AC source magnitude [V]
-
-R1 = 1e3;                % R1 [Ohm]
-R2 = 2e3;                % R2 [Ohm]
-C  = 100e-9;             % C [F]
+R1 = 1e3;                
+R2 = 2e3;               
+C  = 100e-9;             
 
 G1 = 1 / R1;
 G2 = 1 / R2;
 
-%% Frequency Range
-
 f = logspace(0, 6, 1000);    % 1 Hz to 1 MHz
 w = 2 * pi * f;
-
-%% Preallocate Results
 
 Vout = zeros(size(f));
 I_Vs = zeros(size(f));
 
-%% AC Analysis
 
 for k = 1:length(f)
 
-    % Capacitor admittance
     Yc = 1j * w(k) * C;
-
-    % MNA system
-    %
-    % Unknown vector:
-    %
+    
     % x = [Vin; Vout; I_Vs]
     %
     % A*x = b
@@ -66,16 +51,12 @@ for k = 1:length(f)
         Vs
     ];
 
-    % Solve MNA equations
     x = A \ b;
 
-    % Extract results
     Vout(k) = x(2);
     I_Vs(k) = x(3);
 
 end
-
-%% Magnitude and Phase
 
 Vout_mag = abs(Vout);
 Vout_phase = angle(Vout) * 180 / pi;
@@ -103,8 +84,6 @@ grid on;
 xlabel('Frequency (Hz)');
 ylabel('Phase (degrees)');
 title('AC Frequency Response - Phase');
-
-%% Display Selected Results
 
 fprintf('AC Analysis Results\n');
 fprintf('-------------------\n');

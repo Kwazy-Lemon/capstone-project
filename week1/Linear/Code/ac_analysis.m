@@ -2,11 +2,11 @@
 % Circuit:
 %
 %                 R1 = 1 kOhm
-% Vin  ---------/\/\/\--------o Vout
-%                              |
-%                              +---- R2 = 2 kOhm ---- GND
-%                              |
-%                              +---- C = 100 nF ----- GND
+% Vin  ---------R1--------o Vout
+%                         |
+%                         R2---- R2 = 2 kOhm ---- GND
+%                         |
+%                         C---- C = 100 nF ----- GND
 %
 % AC voltage source: 10 V
 % The circuit is analyzed over a range of frequencies.

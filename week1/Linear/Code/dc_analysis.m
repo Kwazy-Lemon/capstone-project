@@ -14,6 +14,9 @@
 % Voltage source: 10 V
 % R1 = 1 kOhm
 % R2 = 2 kOhm
+% x = [Vin; Vout; I_Vs]
+% I_Vs : current through the voltage source
+% A*x = b
 
 clear;
 clc;
@@ -26,11 +29,6 @@ R2 = 2e3;
 
 G1 = 1 / R1;
 G2 = 1 / R2;
-
-
-% x = [Vin; Vout; I_Vs]
-% I_Vs : current through the voltage source
-% A*x = b
 
 A = [
     G1,      -G1,          1;

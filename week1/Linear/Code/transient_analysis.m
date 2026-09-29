@@ -79,8 +79,6 @@ for k = 1:length(t)
 
 end
 
-%% Display Final Result
-
 fprintf('Transient Analysis Results\n');
 fprintf('--------------------------\n');
 
@@ -96,8 +94,6 @@ fprintf('Final Vin  = %.4f V\n', Vin(end));
 fprintf('Final Vout = %.4f V\n', Vout(end));
 fprintf('Final I_Vs = %.4f mA\n', I_Vs(end) * 1e3);
 
-%% Plot Output Voltage
-
 figure;
 
 plot(t * 1e3, Vout, 'LineWidth', 1.5);
@@ -108,7 +104,6 @@ xlabel('Time (ms)');
 ylabel('V_{out} (V)');
 title('Transient Response');
 
-%% Plot Input and Output Voltage
 
 figure;
 

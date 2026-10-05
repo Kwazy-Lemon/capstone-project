@@ -1,19 +1,9 @@
 function matlab_reference()
-% TASKS 3/4: MATLAB reference for the Python circuit simulator.
-% Run run_benchmarks.py first, then type: matlab_reference
-% Requires base MATLAB only. Matrices are assembled independently here.
-% Governing equation: G*x + M*dx/dt = b.
-% This reference file has NOT been executed in MATLAB in the provided package.
-
 root = fileparts(mfilename('fullpath'));
 out = fullfile(root, 'results_matlab');
 py = fullfile(root, 'results_python');
 if ~exist(out, 'dir'), mkdir(out); end
 
-%% TASK 3: linear DC benchmark A -- resistor divider
-% Connections: V1 in->ground (5 V), R1 in->out, R2 out->ground.
-% Positive I_V1 goes from the source positive terminal to its negative terminal.
-% Unknown order: x = [V_in; V_out; I_V1].
 R1 = 1000; R2 = 2000; Vs = 5;
 g1 = 1/R1; g2 = 1/R2;
 G = sparse([g1, -g1, 1; -g1, g1+g2, 0; 1, 0, 0]);
@@ -24,11 +14,6 @@ IR2 = x(2)/R2;
 valueA = [x; IR1; IR2];
 exactA = [5; 10/3; -1/600; 1/600; 1/600];
 resA = G*x-b;
-
-%% TASK 3: benchmark B -- floating voltage source and independent current source
-% R1: n1->ground, 1 kohm. R2: n2->ground, 2 kohm.
-% V1: n1(+) -> n2(-), 2 V. I1: ground->n2, 1 mA.
-% Unknown order: [V_n1; V_n2; I_V1].
 G2 = sparse([1e-3, 0, 1; 0, 0.5e-3, -1; 1, -1, 0]);
 b2 = [0; 1e-3; 2];
 x2 = G2 \ b2;
@@ -53,7 +38,6 @@ fprintf('DC KCL residuals (A): %.3e, %.3e, %.3e, %.3e\n', ...
     resA(1),resA(2),resB(1),resB(2));
 fprintf('DC source-constraint residuals (V): %.3e, %.3e\n',resA(3),resB(3));
 
-% This is the actual Python-versus-MATLAB comparison requested in Task 3.
 dcPath = fullfile(py,'dc_results.csv');
 if exist(dcPath,'file')
     p = readtable(dcPath);
@@ -72,9 +56,6 @@ else
     fprintf('Python DC comparison pending: run run_benchmarks.py first.\n');
 end
 
-%% TASK 4A: AC frequency response -- RC low-pass
-% V1: in->ground, R: in->out, C: out->ground.
-% AC input amplitude is 1 V. This is different from the 5-V DC/step input.
 R = 1000; C = 1e-6; g = 1/R;
 G = sparse([g,-g,1; -g,g,0; 1,0,0]);
 M = sparse(3,3); M(2,2) = C;
@@ -115,7 +96,6 @@ if exist(acPath,'file')
     assert(max(absComplexDifference)<1e-10,'Python/MATLAB AC comparison failed.');
 end
 
-%% TASK 4B: Backward Euler step response and timestep-error table
 Vs = 5; tau = R*C; tstop = 5*tau;
 dt_over_tau = [0.2;0.1;0.05;0.025;0.0125];
 dt_s = tau*dt_over_tau;
@@ -130,8 +110,6 @@ for j = 1:numel(dt_s)
     steps(j) = round(tstop/dt);
     t = (0:steps(j)).'*dt;
     X = zeros(numel(t),3);
-    % Initial condition at t=0+ after an ideal 0->5-V step.
-    % Vcap=0. Source voltage and source current satisfy algebraic equations.
     X(1,:) = [Vs,0,-Vs/R];
     A = G+M/dt;
     for n = 2:numel(t)

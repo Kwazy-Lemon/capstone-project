@@ -1,8 +1,3 @@
-"""Run Tasks 3/4 reference benchmarks and export meeting evidence.
-
-Run: python run_benchmarks.py
-The tiny matrices below are explicit fixtures, not a replacement for Task 2.
-"""
 from pathlib import Path
 import csv
 import json
@@ -12,12 +7,9 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from scipy.sparse import csc_matrix
 from linear_solvers import dc_solve, ac_sweep, backward_euler
-
 ROOT = Path(__file__).resolve().parent
 OUT = ROOT / "results_python"
 OUT.mkdir(exist_ok=True)
-
-
 def export_csv(name, fields, rows):
     with (OUT / name).open("w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
@@ -26,9 +18,6 @@ def export_csv(name, fields, rows):
 
 
 def rc_matrices(R, C):
-    """V1: in(+) to ground(-); R: in to out; C: out to ground.
-    Unknowns: [V_in, V_out, I_V1], I_V1 is positive from in to ground.
-    """
     g = 1.0 / R
     G = csc_matrix([[g, -g, 1], [-g, g, 0], [1, 0, 0]], dtype=float)
     M = csc_matrix(([C], ([1], [1])), shape=(3, 3))
@@ -52,9 +41,6 @@ def run_dc():
     residual_rows = [["divider", "KCL_in", "A", (G@x-b)[0]],
                      ["divider", "KCL_out", "A", (G@x-b)[1]],
                      ["divider", "V_source_constraint", "V", (G@x-b)[2]]]
-
-    # Benchmark B: floating 2-V source n1(+)->n2(-); resistors to ground;
-    # a 1-mA current source injects into n2 from ground.
     G2 = csc_matrix([[1e-3, 0, 1], [0, 0.5e-3, -1], [1, -1, 0]])
     b2 = np.array([0, 1e-3, 2])
     x2 = dc_solve(G2, b2)
@@ -70,7 +56,6 @@ def run_dc():
     export_csv("dc_results.csv", ["circuit", "quantity", "unit", "python", "analytic", "abs_error"], rows)
     export_csv("dc_residuals.csv", ["circuit", "equation", "unit", "residual"], residual_rows)
     return {"dc_benchmark_cases": 2, "dc_analytic_checks": "passed"}
-
 
 def run_ac():
     R, C = 1e3, 1e-6
@@ -103,7 +88,6 @@ def run_ac():
     plt.close(fig)
     return {"ac_max_complex_error": float(error.max()), "cutoff_Hz": fc,
             "cutoff_gain_dB": float(20*np.log10(abs(H[k]))), "cutoff_phase_deg": float(np.angle(H[k], deg=True))}
-
 
 def run_transient():
     R, C, Vs = 1e3, 1e-6, 5.0
@@ -149,7 +133,6 @@ def run_transient():
     return {"transient_checks": "passed", "finest_dt_s": rows[-1][0],
             "finest_max_error_V": rows[-1][3], "observed_order": rows[-1][-1]}
 
-
 def check_inductor_sign():
     # One additional physical check: series RL, V_out across L.
     # Unknowns [V_in, V_out, I_V1, I_L]; V_out - L*dI_L/dt = 0.
@@ -169,7 +152,6 @@ def check_inductor_sign():
     np.testing.assert_allclose(X[:,3],exact_discrete,rtol=1e-11,atol=1e-13)
     return {"inductor_dc_ac_be_checks":"passed"}
 
-
 def main():
     metrics = {}
     for run in (run_dc, run_ac, run_transient, check_inductor_sign):
@@ -178,7 +160,6 @@ def main():
     (OUT / "validation_summary.json").write_text(json.dumps(metrics, indent=2), encoding="utf-8")
     print(json.dumps(metrics, indent=2))
     print(f"Evidence saved in {OUT}")
-
 
 if __name__ == "__main__":
     main()

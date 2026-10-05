@@ -1,0 +1,14 @@
+{
+  "dc_benchmark_cases": 2,
+  "dc_analytic_checks": "passed",
+  "ac_max_complex_error": 2.220446049250313e-16,
+  "cutoff_Hz": 159.15494309189535,
+  "cutoff_gain_dB": -3.0102999566398116,
+  "cutoff_phase_deg": -45.0,
+  "transient_checks": "passed",
+  "finest_dt_s": 1.25e-05,
+  "finest_max_error_V": 0.011436727944281078,
+  "observed_order": 0.9925670920192484,
+  "inductor_dc_ac_be_checks": "passed",
+  "matlab_comparison_status": "PENDING: run matlab_reference.m in MATLAB after this script."
+}

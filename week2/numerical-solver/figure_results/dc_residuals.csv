@@ -1,0 +1,7 @@
+circuit,equation,unit,residual
+divider,KCL_in,A,0.0
+divider,KCL_out,A,-8.673617379884035e-19
+divider,V_source_constraint,V,0.0
+floating_source,KCL_n1,A,0.0
+floating_source,KCL_n2,A,2.168404344971009e-19
+floating_source,V_source_constraint,V,0.0

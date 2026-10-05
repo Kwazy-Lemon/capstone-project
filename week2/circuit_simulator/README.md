@@ -81,6 +81,8 @@ Analytical result:
 Expected Vout = 6.666667 V
 Error          = 0.000000e+00 V
 ```
+<img width="295" height="197" alt="image" src="https://github.com/user-attachments/assets/98f00f19-5777-4cea-87c5-13a726f99e4f" />
+
 
 ## Testing
 
@@ -93,6 +95,7 @@ All simulator modules can be imported successfully:
 ```text
 All modules imported successfully.
 ```
+<img width="325" height="105" alt="image" src="https://github.com/user-attachments/assets/01a407fc-c380-4c79-86ee-1d244d09821f" />
 
 
 ### 2. NodeMap Test
@@ -110,6 +113,7 @@ The number of non-ground nodes is:
 ```text
 2
 ```
+<img width="268" height="165" alt="image" src="https://github.com/user-attachments/assets/0925d74d-ab3e-4b83-ad6e-726579ebadd0" />
 
 
 ### 3. Resistor Stamping Test
@@ -122,6 +126,7 @@ For a 1 kΩ resistor between `Vin` and `out`, the generated MNA contributions ar
  (0, 1, -0.001),
  (1, 0, -0.001)]
 ```
+<img width="436" height="123" alt="image" src="https://github.com/user-attachments/assets/f35eb65f-352e-4771-9a30-df76b8ea091b" />
 
 
 
@@ -134,6 +139,7 @@ For a 10 V voltage source between `Vin` and `GND`, with branch-current index 2:
   (2, 0, 1.0)],
  (2, 10.0))
 ```
+<img width="380" height="147" alt="image" src="https://github.com/user-attachments/assets/731fdecc-3613-45bc-96a3-40194f88780e" />
 
 
 ### 5. DC Benchmark Test
@@ -183,6 +189,7 @@ The expected result is:
 ```text
 Vout = 5.0 V
 ```
+<img width="476" height="262" alt="image" src="https://github.com/user-attachments/assets/bb6b8646-c9cf-400f-b3bd-01c94cbe2765" />
 
 This confirms that the MNA system is assembled from the circuit parameters rather than being hard-coded for a single benchmark.
 

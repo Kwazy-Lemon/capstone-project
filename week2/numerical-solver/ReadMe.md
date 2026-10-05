@@ -1,4 +1,4 @@
-# Capstone Tasks 3 and 4: Setup, Python Layers, Interfaces, and Code Explanation
+# Setup, Python Layers, Interfaces, and Code Explanation
 
 The main implementation is in **Python, with MATLAB providing an independent comparison**. Task 3 in the assignment slide explicitly says “Run Python linear DC benchmark,” with voltages, currents, and a MATLAB comparison as evidence. Task 4 says “Add AC and Backward Euler transient.” Given the project's Python workflow, these features should be integrated into the Python simulator. MATLAB can also help explain and check Task 4; the slide does not require a MATLAB-only implementation of that task.
 

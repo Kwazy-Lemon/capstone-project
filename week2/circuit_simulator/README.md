@@ -165,6 +165,8 @@ The analytical error is:
 ```text
 0.000000e+00 V
 ```
+<img width="437" height="286" alt="image" src="https://github.com/user-attachments/assets/c4c0701f-89a9-434b-a6e2-18c87e79d294" />
+
 
 ### 6. Reusability Test
 

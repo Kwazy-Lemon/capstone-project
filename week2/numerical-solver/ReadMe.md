@@ -98,9 +98,9 @@ The AC and transient checks call `export_csv()` to save numerical results and us
 
 The package uses
 
-\[
-Gx(t)+M\frac{dx(t)}{dt}=b(t).
-\]
+$$
+Gx(t)+M\frac{dx(t)}{dt}=b(t)
+$$
 
 Let `N` be the number of unknowns, `K` the number of frequency points, and `S` the number of timesteps.
 

@@ -444,18 +444,6 @@ The three equations are KCL at the input node, KCL at the output node, and the v
 V_{in}=5.
 \]
 
-Therefore,
-
-\[
-\underbrace{\begin{bmatrix}
-1/R_1&-1/R_1&1\\
--1/R_1&1/R_1+1/R_2&0\\
-1&0&0
-\end{bmatrix}}_{G}
-x=
-\underbrace{\begin{bmatrix}0\\0\\5\end{bmatrix}}_b.
-\]
-
 Minimal MATLAB implementation:
 
 ```matlab

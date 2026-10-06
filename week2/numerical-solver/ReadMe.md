@@ -523,14 +523,6 @@ Here, `f` is in Hz and `ω` is in rad/s. `M` is the dynamic matrix containing ca
 | R | in → out | 1 kΩ |
 | C | out → ground | 1 µF |
 
-The output is the voltage across the capacitor. Using the same unknown order `x=[V_in,V_out,I_V1]` gives
-
-\[
-G=\begin{bmatrix}g&-g&1\\-g&g&0\\1&0&0\end{bmatrix},\quad
-M=\begin{bmatrix}0&0&0\\0&C&0\\0&0&0\end{bmatrix},\quad
-B_{AC}=\begin{bmatrix}0\\0\\1\end{bmatrix},\quad g=1/R.
-\]
-
 This circuit differs from the DC divider: the output-to-ground resistor R2 has been replaced by a capacitor.
 
 The core MATLAB loop is:

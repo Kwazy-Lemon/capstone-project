@@ -603,9 +603,9 @@ The order is estimated using `p=log2(E_previous/E_current)` because each timeste
 
 The program also uses the exact recurrence solution of the discretized RC problem,
 
-\[
-V_n=5\left[1-(1+\Delta t/(RC))^{-n}\right],
-\]
+$$
+V_n=5\left[1-(1+\Delta t/(RC))^{-n}\right]
+$$
 
 to check implementation and time indexing. Comparing with the continuous-time analytical solution then measures time-discretization error. These two checks serve different purposes.
 

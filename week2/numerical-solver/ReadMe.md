@@ -426,24 +426,6 @@ The sequence is: define the circuit and reference directions → write KCL and v
 | R1 | in | out | 1 kΩ |
 | R2 | out | ground | 2 kΩ |
 
-The unknown vector is
-
-\[
-x=\begin{bmatrix}V_{in}\\V_{out}\\I_{V1}\end{bmatrix}.
-\]
-
-The three equations are KCL at the input node, KCL at the output node, and the voltage-source constraint:
-
-\[
-\frac{V_{in}-V_{out}}{R_1}+I_{V1}=0,
-\]
-\[
-\frac{V_{out}-V_{in}}{R_1}+\frac{V_{out}}{R_2}=0,
-\]
-\[
-V_{in}=5.
-\]
-
 Minimal MATLAB implementation:
 
 ```matlab

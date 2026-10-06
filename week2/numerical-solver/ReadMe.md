@@ -473,15 +473,15 @@ Compute the steady-state sinusoidal response of a linear circuit at different fr
 
 Starting from
 
-\[
-Gx(t)+M\frac{dx(t)}{dt}=b(t),
-\]
+$$
+Gx(t)+M\frac{dx(t)}{dt}=b(t)
+$$
 
 use the `exp(jωt)` phasor convention, under which differentiation becomes multiplication by `jω`:
 
-\[
-(G+j\omega M)X=B_{AC},\qquad\omega=2\pi f.
-\]
+$$
+(G+j\omega M)X=B_{AC},\qquad\omega=2\pi f
+$$
 
 Here, `f` is in Hz and `ω` is in rad/s. `M` is the dynamic matrix containing capacitor and inductor terms; a scalar capacitance C cannot replace the entire matrix. If the team calls this matrix `Cmat`, that name can be used as long as its physical definition and signs match.
 
@@ -514,9 +514,9 @@ phase_deg = angle(H)*180/pi;
 
 The independent analytical reference is
 
-\[
-H(j\omega)=\frac{1}{1+j\omega RC},\qquad f_c=\frac{1}{2\pi RC}=159.154943\ \mathrm{Hz}.
-\]
+$$
+H(j\omega)=\frac{1}{1+j\omega RC},\qquad f_c=\frac{1}{2\pi RC}=159.154943\ \mathrm{Hz}
+$$
 
 At the cutoff frequency, the magnitude is `1/sqrt(2)`, the gain is approximately −3.0103 dB, and the phase is −45°. The code explicitly adds the cutoff frequency to the sweep, rather than treating a nearby sample as the exact cutoff point.
 
@@ -528,21 +528,21 @@ This is linear AC analysis. Extending it to diode or MOSFET small-signal AC requ
 
 Backward Euler approximates the derivative at the current time using the current and previous states:
 
-\[
-\left.\frac{dx}{dt}\right|_{t_n}\approx\frac{x_n-x_{n-1}}{\Delta t}.
-\]
+$$
+\left.\frac{dx}{dt}\right|_{t_n}\approx\frac{x_n-x_{n-1}}{\Delta t}
+$$
 
 Substitute this into `G*x + M*dx/dt=b`:
 
-\[
-Gx_n+M\frac{x_n-x_{n-1}}{\Delta t}=b(t_n).
-\]
+$$
+Gx_n+M\frac{x_n-x_{n-1}}{\Delta t}=b(t_n)
+$$
 
 Move the known previous-state contribution to the right-hand side:
 
-\[
+$$
 \boxed{(G+M/\Delta t)x_n=b(t_n)+(M/\Delta t)x_{n-1}.}
-\]
+$$
 
 `G+M/dt` is the coefficient matrix for the current step. The history term `M*x_prev/dt` carries the previous capacitor and inductor state. The source vector is evaluated at the current time `t_n`, not the previous time.
 
@@ -563,9 +563,9 @@ For fixed timesteps and constant linear matrices, the Python implementation perf
 
 Use the same RC circuit with a 0-to-5 V step and an initial capacitor voltage of 0 V. Define t=0 as the instant just after switching, t=0+:
 
-\[
-x_0=[5,\ 0,\ -5/R]^T=[5,\ 0,\ -0.005]^T.
-\]
+$$
+x_0=[5,\ 0,\ -5/R]^T=[5,\ 0,\ -0.005]^T
+$$
 
 The capacitor voltage is still zero, the ideal source node is already at 5 V, and KCL determines the source current. This initial state satisfies both the capacitor's initial condition and the algebraic constraints.
 
@@ -577,15 +577,15 @@ Using the 5 V DC operating point as the initial state would mean the capacitor i
 
 The time constant is `τ=RC=1 ms`, and the simulation runs to `5τ=5 ms`. The continuous-time analytical solution is
 
-\[
-V_{out}(t)=5(1-e^{-t/(RC)}).
-\]
+$$
+V_{out}(t)=5(1-e^{-t/(RC)})
+$$
 
 For each timestep, evaluate the analytical solution at that timestep's own sample times and compute
 
-\[
-E_{max}(\Delta t)=\max_n|V_{BE}(t_n)-V_{exact}(t_n)|.
-\]
+$$
+E_{max}(\Delta t)=\max_n|V_{BE}(t_n)-V_{exact}(t_n)|
+$$
 
 This is the maximum error at the sampled times. All runs use the same initial conditions, source, circuit, and end time. The analytical solution can be evaluated directly on each grid, so no interpolation between coarse and fine grids is needed.
 

@@ -1,8 +1,18 @@
+"""
+this file provides the reusable sparse linear system solver for the circuit simulator, and include the Dc Analysis,Ac frequence sweeps and transient analysis
+
+how this file work? The module uses SciPy sparse matrices and linear solvers to solve circuit equations without explicitly calculating matrix inverses.
+1.DC analysis solves G*x = b_dc to obtain the DC operating-point solution.
+2.AC analysis solves (G + j*omega*M)*x = b_ac at each specified frequency, using the exp(+j*omega*t) convention.
+3.Transient analysis uses the backward Euler method to calculate the circuit state at each time step based on the previous state and the current source.
+4.Input validation and numerical checks are performed to detect invalid dimensions, non-finite values, and unsuccessful solutions.
+
+
 import warnings
 import numpy as np
 from scipy.sparse import csc_matrix
 from scipy.sparse.linalg import MatrixRankWarning, splu, spsolve
-
+"""
 
 def solve_checked(A, b):
     """Solve a square sparse system. Do not form an explicit inverse."""

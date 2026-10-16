@@ -181,7 +181,7 @@ All simulator modules can be imported successfully:
 All modules imported successfully.
 ```
 
-![Module import test](https://github.com/user-attachments/assets/01a407fc-c380-4c79-86e6-726579ebadd0)
+![Module import test](https://github.com/user-attachments/assets/01a407fc-c380-4c79-86ee-1d244d09821f)
 
 ### 2. NodeMap Test
 

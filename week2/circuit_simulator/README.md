@@ -1,211 +1,135 @@
 # Python Circuit Simulator
 
-A modular Python implementation of a SPICE-like circuit simulator based on Modified Nodal Analysis (MNA).
+A modular Python implementation of a small SPICE-like DC circuit simulator. It uses **Modified Nodal Analysis (MNA)** to convert a circuit into a linear system and uses NumPy/SciPy to represent and solve that system.
 
 ## Current Scope
 
-The current implementation supports:
+This version implements:
 
-- Node mapping
-- Resistor modeling
-- Independent voltage source modeling
-- MNA matrix assembly
-- Sparse matrix construction using COO and CSC formats
-- DC circuit solving
-- Analytical benchmark validation
-- Reusable circuit parameter testing
+- Mapping non-ground circuit nodes to matrix indices
+- Ideal resistor modeling
+- Independent ideal voltage source modeling
+- MNA matrix and right-hand-side assembly
+- Sparse matrix construction with SciPy
+- A small DC benchmark and an analytical voltage-divider check
+
+AC analysis, transient analysis, nonlinear device models, and netlist parsing are not implemented in this version.
 
 ## Project Structure
 
+| File | Responsibility |
+|---|---|
+| `main.py` | Builds and solves the example circuit, prints results, and checks the output voltage against an analytical calculation |
+| `node_map.py` | Maps node labels to matrix indices; ground is the reference node and has no unknown |
+| `resistor.py` | Defines a resistor and returns its conductance-matrix contributions |
+| `voltage_source.py` | Defines an ideal voltage source and returns its matrix and voltage-constraint contributions |
+| `mna_assembler.py` | Collects elements, assigns voltage-source current indices, and assembles the sparse MNA system |
+
+## How the Code Works
+
+The program follows this sequence:
+
+1. `main.py` creates the circuit elements.
+2. `MNAAssembler.add_element()` registers each element and its terminal nodes.
+3. `NodeMap` assigns indices to non-ground nodes. Ground is the zero-volt reference and is not included in the unknown vector.
+4. `MNAAssembler.assign_branch_indices()` assigns an additional unknown to the current through each ideal voltage source.
+5. Each element's `stamp()` method returns the matrix entries contributed by that element.
+6. `MNAAssembler.assemble()` combines the entries into a SciPy sparse matrix and creates the right-hand-side vector.
+7. `main.py` solves the small benchmark system and compares the output voltage with the voltage-divider formula.
+
+## MNA Formulation
+
+The assembled system has the form:
+
 ```text
-circuit_simulator/
-├── README.md
-├── main.py
-├── node_map.py
-├── resistor.py
-├── voltage_source.py
-└── mna_assembler.py
+A x = b
 ```
 
-## Architecture
-
-```text
-Circuit Elements
-       ↓
-    NodeMap
-       ↓
-Element Stamping
-       ↓
- MNA Assembler
-       ↓
- Sparse MNA Matrix
-       ↓
-  Linear Solver
-       ↓
- Circuit Results
-```
-
-## DC Benchmark
-
-The current benchmark uses:
-
-- Voltage source: 10 V
-- R1: 1 kΩ
-- R2: 2 kΩ
-
-The unknown vector is:
+The unknown vector contains non-ground node voltages first, followed by ideal voltage-source currents. For the example circuit:
 
 ```text
 x = [Vin, Vout, I_Vs]^T
 ```
 
-The assembled MNA system is:
+A resistor with conductance `g = 1/R` contributes:
+
+- `+g` to the diagonal entry for each non-ground terminal
+- `-g` to the off-diagonal entries when both terminals are non-ground
+- No entry for a ground terminal, because ground has no matrix index
+
+An ideal voltage source adds a current unknown and the constraint:
 
 ```text
-[ 0.001  -0.001   1    ] [Vin ]   [ 0 ]
-[-0.001   0.0015  0    ] [Vout] = [ 0 ]
-[ 1        0       0   ] [I_Vs]   [10 ]
+V(+) - V(-) = source_voltage
 ```
 
-The Python implementation produces:
+The source current appears in the connected nodes' KCL equations. The voltage constraint adds a row and column to the MNA system.
+
+## DC Benchmark
+
+The example is a resistor divider:
+
+- Voltage source: 10 V between `Vin` and ground
+- `R1`: 1 kΩ between `Vin` and `out`
+- `R2`: 2 kΩ between `out` and ground
+
+The expected output voltage is calculated independently:
+
+```text
+Vout = Vs * R2 / (R1 + R2)
+     = 10 * 2000 / (1000 + 2000)
+     = 6.666667 V
+```
+
+The assembled system for this node order is:
+
+```text
+[ 0.001  -0.001   1    ] [Vin ]   [ 0  ]
+[-0.001   0.0015  0    ] [Vout] = [ 0  ]
+[ 1        0       0    ] [I_Vs]   [10 ]
+```
+
+Expected output from `main.py`:
 
 ```text
 Vin  = 10.000000 V
 Vout = 6.666667 V
 I_Vs = -0.003333 A
-```
-
-Analytical result:
-
-```text
 Expected Vout = 6.666667 V
-Error          = 0.000000e+00 V
-```
-<img width="295" height="197" alt="image" src="https://github.com/user-attachments/assets/98f00f19-5777-4cea-87c5-13a726f99e4f" />
-
-
-## Testing
-
-The simulator was tested at both the individual module level and the complete circuit level.
-
-### 1. Module Import Test
-
-All simulator modules can be imported successfully:
-
-```text
-All modules imported successfully.
-```
-<img width="325" height="105" alt="image" src="https://github.com/user-attachments/assets/01a407fc-c380-4c79-86ee-1d244d09821f" />
-
-
-### 2. NodeMap Test
-
-The node mapping was verified using:
-
-```text
-Vin  → 0
-out  → 1
-GND  → None
+Error         = approximately 0 V
 ```
 
-The number of non-ground nodes is:
+The negative source-current result follows the branch-current sign convention used by the MNA equations; it does not indicate an incorrect output voltage.
 
-```text
-2
-```
-<img width="268" height="165" alt="image" src="https://github.com/user-attachments/assets/0925d74d-ab3e-4b83-ad6e-726579ebadd0" />
+## Dependencies
 
+- Python 3
+- NumPy
+- SciPy
 
-### 3. Resistor Stamping Test
+Install the required libraries if needed:
 
-For a 1 kΩ resistor between `Vin` and `out`, the generated MNA contributions are:
-
-```text
-[(0, 0, 0.001),
- (1, 1, 0.001),
- (0, 1, -0.001),
- (1, 0, -0.001)]
-```
-<img width="436" height="123" alt="image" src="https://github.com/user-attachments/assets/f35eb65f-352e-4771-9a30-df76b8ea091b" />
-
-
-
-### 4. Voltage Source Stamping Test
-
-For a 10 V voltage source between `Vin` and `GND`, with branch-current index 2:
-
-```text
-([(0, 2, 1.0),
-  (2, 0, 1.0)],
- (2, 10.0))
-```
-<img width="380" height="147" alt="image" src="https://github.com/user-attachments/assets/731fdecc-3613-45bc-96a3-40194f88780e" />
-
-
-### 5. DC Benchmark Test
-
-For:
-
-```text
-Vs = 10 V
-R1 = 1 kΩ
-R2 = 2 kΩ
+```bash
+python -m pip install numpy scipy
 ```
 
-the simulator produces:
+## Running the Example
 
-```text
-Vin  = 10.000000 V
-Vout = 6.666667 V
-I_Vs = -0.003333 A
-```
-
-The analytical error is:
-
-```text
-0.000000e+00 V
-```
-<img width="437" height="286" alt="image" src="https://github.com/user-attachments/assets/c4c0701f-89a9-434b-a6e2-18c87e79d294" />
-
-
-### 6. Reusability Test
-
-The circuit parameters were changed without modifying the MNA assembly implementation:
-
-```text
-Vs = 10 V
-R1 = 2 kΩ
-R2 = 2 kΩ
-```
-
-The simulator produces:
-
-```text
-Vin  = 10.0 V
-Vout = 5.0 V
-I_Vs = -0.0025 A
-```
-
-The expected result is:
-
-```text
-Vout = 5.0 V
-```
-<img width="476" height="262" alt="image" src="https://github.com/user-attachments/assets/bb6b8646-c9cf-400f-b3bd-01c94cbe2765" />
-
-This confirms that the MNA system is assembled from the circuit parameters rather than being hard-coded for a single benchmark.
-
-## Running
-
-From the `circuit_simulator` directory:
+Run from the `circuit_simulator` directory:
 
 ```bash
 python main.py
 ```
 
-## Next Steps
+The example converts the sparse matrix to a dense array for the NumPy solve because the benchmark is very small. For larger circuits, a suitable sparse linear solver should be considered.
 
-- AC analysis
-- Transient analysis using Backward Euler
-- Nonlinear diode analysis using Newton iteration
-- Additional circuit elements
+## Testing and Limitations
+
+The existing project notes record module-import checks, node-map checks, resistor and voltage-source stamping checks, the DC benchmark, and a second voltage-divider parameter set. These are useful manual checks; they are not yet organized as an automated test suite.
+
+Current limitations:
+
+- The program constructs the circuit directly in Python; it does not parse SPICE netlists.
+- Only resistors and independent ideal voltage sources are modeled.
+- Input validation for invalid resistance values and malformed element definitions is not yet comprehensive.
+- AC, transient, and nonlinear analyses remain future work.

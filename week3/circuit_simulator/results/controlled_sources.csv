@@ -1,0 +1,5 @@
+source_type,computed_V,expected_V,abs_error_V,control_current_A
+VCVS,6.0,6.0,0.0,0.002
+VCCS,-4.0,-4.0,0.0,0.002
+CCCS,-8.0,-8.0,0.0,0.002
+CCVS,2.0,2.0,0.0,0.002

@@ -1,0 +1,12 @@
+{
+  "controlled_source_cases": 4,
+  "controlled_source_checks": "passed",
+  "rl_dc_check": "passed",
+  "rl_ac_check": "passed",
+  "rl_ac_max_current_error_A": 1.3879481770324007e-17,
+  "rl_transient_discrete_check": "passed",
+  "rl_timestep_convergence": "passed",
+  "rl_transient_fine_max_error_A": 0.0002275591263180901,
+  "rl_time_constant_s": 0.0001,
+  "reference_method": "Analytical formulas and backward Euler recurrence; MATLAB not run."
+}

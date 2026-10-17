@@ -1,3 +1,54 @@
+"""
+This script validates the circuit solvers using DC, AC, and transient
+benchmarks. It compares numerical results with analytical references
+and saves the results, errors, and plots in results_python.
+1. Build the MNA matrices
+   G contains the algebraic terms associated with resistors and voltage
+   sources, while M contains the derivative terms for capacitors and
+   inductors. The circuit equations therefore take the form: M dx/dt + Gx = b
+   This shared formulation supports DC, AC, and transient analysis.
+   CSC sparse matrices are used because circuit matrices usually contain
+   many zero entries and are suitable for sparse linear solvers.
+2. Validate DC analysis
+   Test a resistor divider and a circuit with a floating voltage source.
+   Compare node voltages and branch currents with analytical solutions.
+   The divider checks basic calculations, while the floating-source case
+   checks voltage constraints between two non-ground nodes.
+   Also calculate Gx-b to check KCL and voltage-source constraints.
+   These residuals are recorded separately because their units differ:
+   amperes for KCL and volts for voltage constraints.
+3. Validate AC analysis
+   Sweep an RC low-pass circuit over logarithmically spaced frequencies.
+   Calculate H = V_out / V_in and compare it with 1/(1+jωRC).
+   Logarithmic spacing covers a wide frequency range efficiently.
+   The exact cutoff frequency is also included to verify that its gain
+   magnitude is 1/sqrt(2).
+   Export the gain, phase, and errors, and plot the frequency response.
+4. Validate transient analysis and timestep convergence
+   Use Backward Euler to simulate an RC circuit driven by a 5 V step.
+   Set the initial state immediately after the step: the capacitor
+   voltage remains zero, while the input voltage and source current
+   satisfy the algebraic constraints.
+   Repeatedly halve the timestep and calculate the maximum error,
+   root-mean-square error, and observed convergence order.
+   Check that the error decreases and the order approaches one.
+   Also compare against an independent Backward Euler discrete formula
+   to distinguish implementation errors from discretization errors.
+5. Check the inductor sign convention
+   Test a series RL circuit using DC, AC, and transient analysis.
+   The sign of the inductor derivative term depends on the chosen
+   voltage and current directions, so known analytical relationships
+   and a discrete reference are used to verify consistency.
+6. Save validation evidence
+   Export numerical results and errors as CSV files, save plots as PNG
+   files, and collect validation metrics in validation_summary.json.
+   These outputs support inspection and later comparison with MATLAB.
+   MATLAB is not executed by this script, so that comparison is marked
+   as pending.
+Numerical assertions use tolerances because floating-point calculations
+can introduce rounding errors, making exact equality inappropriate.
+"""
+
 from pathlib import Path
 import csv
 import json

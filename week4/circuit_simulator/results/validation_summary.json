@@ -1,0 +1,15 @@
+{
+  "current_source_dc_cases": 3,
+  "current_source_dc_check": "passed",
+  "capacitor_dc_check": "passed",
+  "rc_ac_check": "passed",
+  "rc_ac_max_gain_error": 2.2887833992611187e-16,
+  "rc_cutoff_Hz": 159.15494309189532,
+  "rc_transient_discrete_check": "passed",
+  "rc_timestep_convergence": "passed",
+  "rc_transient_coarse_max_error_V": 0.04505020850779573,
+  "rc_transient_fine_max_error_V": 0.02275591263181065,
+  "constant_current_charge_check": "passed",
+  "constant_current_charge_max_error_V": 1.1102230246251565e-15,
+  "reference_method": "Analytical formulas and backward Euler recurrence; MATLAB not run."
+}

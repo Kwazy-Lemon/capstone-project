@@ -1,0 +1,4 @@
+source_current_A,computed_V,expected_V,abs_error_V
+0.001,1.0,1.0,0.0
+0.0,0.0,0.0,0.0
+-0.001,-1.0,-1.0,0.0

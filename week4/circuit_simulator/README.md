@@ -2,24 +2,6 @@
 
 A modular Python implementation of a SPICE-like circuit simulator based on Modified Nodal Analysis (MNA).
 
-## Week 3 interface update
-
-The existing implementation now uses a shared component interface:
-`nodes`, `requires_branch_current`, and
-`stamp(node_map) -> (g_entries, m_entries, rhs_entries)`.
-G/M entries are `(row, column, value)` triples; RHS entries are `(row, value)`
-pairs. Empty contributions use `[]`. Components omit ground entries.
-
-`assemble()` still returns `(G, b)` for the existing DC demo.
-`assemble_system()` returns `(G, M, b)` for `G*x + M*dx/dt = b`.
-Branches are allocated before stamping and resolved with
-`node_map.get_branch_index(name)`. The assembler no longer checks device types.
-
-Week 3 adds `Inductor` and the four controlled sources `VCVS`, `VCCS`, `CCCS`,
-and `CCVS` through this existing interface. Their implementations contain
-step-by-step comments explaining KCL signs, voltage constraints, and control
-branch references. The original assembler and `main.py` do not need changes.
-
 ## Week 4 component update
 
 Week 4 adds an ideal `Capacitor` and an independent ideal `CurrentSource` through

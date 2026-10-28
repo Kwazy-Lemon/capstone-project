@@ -1,4 +1,4 @@
-"""define an ideal independent voltage source"""
+"""Zhuoyao Luo"""
 
 from math import isfinite
 

@@ -1,4 +1,4 @@
-"""Zhuoyao Luo"""
+"""Zhihang Chen"""
 
 from math import isfinite
 

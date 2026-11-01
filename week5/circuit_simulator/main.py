@@ -1,4 +1,4 @@
-"""Zhuoyao Luo"""
+"""Zhuoyao Luo，Jianhao Wu"""
 
 import numpy as np
 from scipy.sparse.linalg import spsolve

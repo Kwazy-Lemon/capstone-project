@@ -9,8 +9,14 @@ Example 2: a loaded two-stage RC ladder with independently specified capacitor
 voltages. It checks both node current balances, compares backward Euler with
 an independent continuous-time solution and saves a figure plus waveform CSV
 alongside this script. No existing solver or component is changed.
+Parameter sweep: 2 circuits x 5 initial conditions x 5 time steps = 50 cases.
+Run only the matrix with: python initial_state_example.py --sweep-only
+The sweep saves per-case CSV results, a JSON summary and a convergence plot.
 """
 
+import argparse
+import csv
+import json
 from pathlib import Path
 
 import numpy as np
@@ -265,9 +271,195 @@ def loaded_rc_example():
     save_ladder_outputs(t, voltages, source_current, reference, source_reference)
 
 
+def sweep_circuit(topology, initial_voltages):
+    """Build a sweep circuit, plus an independent reduced-state reference."""
+    circuit = MNAAssembler()
+    circuit.add_element(VoltageSource("Vs", "in", "gnd", 10.0))
+    if topology == "single_rc":
+        circuit.add_element(Resistor("R1", "in", "out", 1000.0))
+        circuit.add_element(Capacitor("C1", "out", "gnd", 1e-6))
+        labels, capacitances = ["out"], np.array([1e-6])
+        conductance = np.array([[1 / 1000.0]])
+        steady = np.array([10.0])
+    else:
+        circuit.add_element(Resistor("R1", "in", "A", 1000.0))
+        circuit.add_element(Resistor("R2", "A", "B", 2000.0))
+        circuit.add_element(Resistor("R3", "B", "gnd", 3000.0))
+        circuit.add_element(Capacitor("C1", "A", "gnd", 1e-6))
+        circuit.add_element(Capacitor("C2", "B", "gnd", 2e-6))
+        labels, capacitances = ["A", "B"], np.array([1e-6, 2e-6])
+        conductance = np.array([[1 / 1000 + 1 / 2000, -1 / 2000],
+                                [-1 / 2000, 1 / 2000 + 1 / 3000]])
+        steady = np.array([10 * 5000 / 6000, 10 * 3000 / 6000])
+    prescribed = {f"C{i + 1}": voltage for i, voltage in enumerate(initial_voltages)}
+    return circuit, prescribed, labels, capacitances, conductance, steady
+
+
+def save_sweep_plot(rows, folder):
+    """Plot every initial-condition group; all signals use their own units."""
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    fig, axes = plt.subplots(2, 2, figsize=(11, 8), layout="constrained")
+    for column, topology in enumerate(("single_rc", "loaded_rc")):
+        for group in range(1, 6):
+            selected = sorted(
+                (r for r in rows if r["topology"] == topology and r["initial_group"] == group),
+                key=lambda r: r["dt_us"],
+            )
+            if not all(np.isfinite(r.get("max_voltage_error_V", np.nan)) for r in selected):
+                continue
+            dt = [r["dt_us"] for r in selected]
+            axes[0, column].loglog(dt, [r["max_voltage_error_V"] for r in selected], "o-", label=f"IC {group}")
+            axes[1, column].loglog(dt, [r["rms_voltage_error_V"] for r in selected], "o-")
+        axes[0, column].set_title("Single RC" if topology == "single_rc" else "Loaded two-stage RC")
+        axes[0, column].set_ylabel("Worst-node maximum error (V)")
+        axes[1, column].set(xlabel="Time step (microseconds)", ylabel="Worst-node RMS error (V)")
+        axes[0, column].legend(fontsize=9)
+        for ax in axes[:, column]:
+            ax.grid(True, which="both", alpha=.25)
+    fig.suptitle("50 distinct cases: 2 circuits x 5 initial conditions x 5 time steps")
+    path = folder / "initial_state_sweep_convergence.png"
+    fig.savefig(path, dpi=160)
+    plt.close(fig)
+    return path
+
+
+def run_parameter_sweep():
+    """Run 50 distinct cases, with declared accuracy and convergence checks.
+
+    These are deterministic parameter combinations, not repeated statistical
+    trials. Component values and source voltage stay fixed in each topology.
+    Accuracy limit: 2% of the initial voltage excursion, with a 1 V scale
+    floor. KCL and voltage-source residual limits are 1e-10 A and 1e-9 V.
+    A refinement passes only when both max and RMS errors, for every voltage
+    and the source current, do not increase (relative slack 1e-6).
+    """
+    initial_sets = {
+        "single_rc": [(0.0,), (2.0,), (5.0,), (-1.0,), (12.0,)],
+        "loaded_rc": [(0.0, 0.0), (2.0, 1.0), (5.0, 3.0), (-1.0, 2.0), (12.0, 8.0)],
+    }
+    time_steps_us = [40.0, 20.0, 10.0, 5.0, 2.5]
+    tstop = .025
+    folder = Path(__file__).resolve().parent
+    rows, reference_cache = [], {}
+    print("\n=== Parameter sweep: 50 distinct circuit / initial-state / time-step cases ===")
+    for topology, initial_cases in initial_sets.items():
+        for group, initial in enumerate(initial_cases, start=1):
+            previous_metrics = None
+            for dt_us in time_steps_us:
+                row = {"case_id": len(rows) + 1, "topology": topology,
+                       "initial_group": group, "v1_initial_V": initial[0],
+                       "v2_initial_V": initial[1] if len(initial) == 2 else "",
+                       "dt_us": dt_us, "tstop_s": tstop, "passed": False,
+                       "convergence": "BASELINE" if previous_metrics is None else "FAIL",
+                       "max_voltage_error_V": np.nan, "rms_voltage_error_V": np.nan,
+                       "max_source_error_A": np.nan, "rms_source_error_A": np.nan,
+                       "max_kcl_residual_A": np.nan, "max_source_constraint_error_V": np.nan,
+                       "voltage_error_limit_V": np.nan, "initial_state_pass": False,
+                       "reference_accuracy_pass": False, "equations_pass": False,
+                       "error": ""}
+                try:
+                    circuit, prescribed, labels, caps, K, steady = sweep_circuit(topology, initial)
+                    x0 = build_initial_state(circuit, prescribed)
+                    check = check_initial_state(circuit, x0, prescribed)
+                    G, M, b = circuit.assemble_system()
+                    nodes = [circuit.node_map.get_index(name) for name in labels]
+                    source = circuit.node_map.get_branch_index("Vs")
+                    input_node = circuit.node_map.get_index("in")
+                    expected = x0.copy()
+                    expected[input_node], expected[nodes] = 10.0, initial
+                    expected[source] = -(10.0 - initial[0]) / 1000.0
+                    t, X = backward_euler(G, M, lambda time: b, x0, dt_us * 1e-6, tstop)
+                    row["initial_state_pass"] = bool(check["consistent"] and
+                        np.allclose(x0, expected, rtol=0, atol=1e-10) and np.array_equal(X[0], x0))
+
+                    key = (topology, dt_us)
+                    if key not in reference_cache:
+                        dynamics = -K / caps[:, None]
+                        reference_cache[key] = np.array([expm(dynamics * time) for time in t])
+                    reference = steady + np.einsum("tij,j->ti", reference_cache[key], np.array(initial) - steady)
+                    source_reference = -(10.0 - reference[:, 0]) / 1000.0
+                    voltage_error = X[:, nodes] - reference
+                    source_error = X[:, source] - source_reference
+                    maxima = np.max(np.abs(voltage_error), axis=0)
+                    rms_values = np.sqrt(np.mean(voltage_error ** 2, axis=0))
+                    metrics = np.concatenate((maxima, rms_values,
+                        [np.max(np.abs(source_error)), np.sqrt(np.mean(source_error ** 2))]))
+                    row["max_voltage_error_V"] = float(np.max(maxima))
+                    row["rms_voltage_error_V"] = float(np.max(rms_values))
+                    row["max_source_error_A"], row["rms_source_error_A"] = map(float, metrics[-2:])
+                    limit = .02 * max(1.0, float(np.max(np.abs(np.array(initial) - steady))))
+                    row["voltage_error_limit_V"] = limit
+                    row["reference_accuracy_pass"] = bool(np.all(np.isfinite(X)) and
+                        np.all(maxima <= limit) and metrics[-2] <= limit / 1000.0)
+
+                    # Independent, directly evaluated node equations over every BE step.
+                    v = X[:, nodes]
+                    kcl = np.diff(v, axis=0) / (dt_us * 1e-6) * caps + v[1:] @ K.T
+                    kcl[:, 0] -= 10.0 / 1000.0
+                    source_kcl = X[:, source] + (X[:, input_node] - v[:, 0]) / 1000.0
+                    row["max_kcl_residual_A"] = float(max(np.max(np.abs(kcl)), np.max(np.abs(source_kcl))))
+                    row["max_source_constraint_error_V"] = float(np.max(np.abs(X[:, input_node] - 10.0)))
+                    row["equations_pass"] = bool(row["max_kcl_residual_A"] <= 1e-10 and
+                        row["max_source_constraint_error_V"] <= 1e-9)
+                    refining = previous_metrics is None or np.all(metrics <= previous_metrics * (1 + 1e-6) + 1e-12)
+                    row["convergence"] = "BASELINE" if previous_metrics is None else "PASS" if refining else "FAIL"
+                    previous_metrics = metrics
+                    row["passed"] = bool(row["initial_state_pass"] and row["reference_accuracy_pass"] and
+                                         row["equations_pass"] and refining)
+                except (ValueError, RuntimeError, np.linalg.LinAlgError) as error:
+                    row["error"] = str(error)
+                    previous_metrics = None
+                rows.append(row)
+                print(f"{row['case_id']:02d}/50 {topology:9s} IC{group} dt={dt_us:4.1f} us "
+                      f"max={row['max_voltage_error_V']:.6e} V  {'PASS' if row['passed'] else 'FAIL'}")
+
+    csv_path = folder / "initial_state_sweep_results.csv"
+    with csv_path.open("w", newline="", encoding="utf-8") as file:
+        writer = csv.DictWriter(file, fieldnames=list(rows[0]))
+        writer.writeheader()
+        writer.writerows(rows)
+    groups = [{"topology": topology, "initial_group": group,
+               "passed": all(r["passed"] for r in rows if r["topology"] == topology and r["initial_group"] == group)}
+              for topology in initial_sets for group in range(1, 6)]
+    summary = {"total_cases": len(rows), "passed_cases": sum(r["passed"] for r in rows),
+               "failed_cases": sum(not r["passed"] for r in rows),
+               "circuits": list(initial_sets), "initial_conditions": initial_sets,
+               "time_steps_us": time_steps_us, "tstop_s": tstop,
+               "criteria": {"reference_accuracy": "max error <= 2% of max(1 V, initial voltage excursion)",
+                            "kcl_atol_A": 1e-10, "source_voltage_atol_V": 1e-9,
+                            "convergence": "per-signal max and RMS errors do not increase when dt halves"},
+               "refinement_groups": groups}
+    json_path = folder / "initial_state_sweep_summary.json"
+    json_path.write_text(json.dumps(summary, indent=2), encoding="utf-8")
+    plot_path = save_sweep_plot(rows, folder)
+    print(f"\nPARAMETER SWEEP: {summary['passed_cases']}/{len(rows)} PASS; {summary['failed_cases']} FAIL")
+    print(f"REFINEMENT GROUPS: {sum(g['passed'] for g in groups)}/{len(groups)} PASS")
+    print("Coverage: 2 circuits x 5 initial conditions x 5 time steps; 25 ms per case")
+    print("Time steps: 40, 20, 10, 5, 2.5 microseconds")
+    print("Accuracy criterion: maximum voltage error <= 2% of max(1 V, initial voltage excursion)")
+    print("Topology    dt(us)  worst max error(V)  worst RMS error(V)")
+    for topology in initial_sets:
+        for dt in time_steps_us:
+            subset = [r for r in rows if r["topology"] == topology and r["dt_us"] == dt]
+            print(f"{topology:9s} {dt:6.1f}  {max(r['max_voltage_error_V'] for r in subset):.6e}       "
+                  f"{max(r['rms_voltage_error_V'] for r in subset):.6e}")
+    print(f"Results: {csv_path.name}; {json_path.name}; {plot_path.name}")
+    if summary["failed_cases"]:
+        raise RuntimeError("parameter sweep contains failures; inspect initial_state_sweep_results.csv")
+    return summary
+
+
 def main():
-    simple_rc_example()
-    loaded_rc_example()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--sweep-only", action="store_true", help="run the 50-case matrix without the worked demonstrations")
+    args = parser.parse_args()
+    if not args.sweep_only:
+        simple_rc_example()
+        loaded_rc_example()
+    run_parameter_sweep()
     print("\nAll initial-state example checks passed.")
 
 

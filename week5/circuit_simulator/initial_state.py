@@ -1,10 +1,10 @@
-"""Jianhao Wu -- consistent initial states for small linear RC circuits.
+"""Jianhao Wu -- consistent initial states for small linear RLC circuits.
 
 Uses the existing Week 5 components and MNAAssembler without changing them.
-Supported elements: Resistor, Capacitor, VoltageSource and CurrentSource,
-with constant independent sources. Every capacitor needs an initial voltage,
-measured from node_plus to node_minus. Inductors and controlled sources are
-outside the scope of this worked example.
+Supported elements: Resistor, Capacitor, VoltageSource, CurrentSource
+and Inductor, with constant independent sources. Every capacitor needs an
+initial voltage and every inductor an initial current, both measured from
+node_plus to node_minus.
 
 Construction temporarily introduces capacitor currents as extra unknowns:
 
@@ -12,7 +12,8 @@ Construction temporarily introduces capacitor currents as extra unknowns:
     [B.T 0] [ic]   [vc]
 
 B is the capacitor incidence matrix. This enforces KCL, source constraints
-and the specified capacitor voltages together. The temporary currents are
+and the specified capacitor voltages together. During initialization, the inductor rows enforce iL(0) = iL_specified.
+The temporary currents are
 not added to NodeMap; the returned x0 retains the existing MNA ordering.
 The augmented system must be nonsingular (no redundant voltage constraints
 or undetermined states). This is not a general DAE initialization solver.
@@ -22,18 +23,19 @@ import numpy as np
 
 from capacitor import Capacitor
 from current_source import CurrentSource
+from inductor import Inductor
 from resistor import Resistor
 from voltage_source import VoltageSource
 
 
-def _rc_system(circuit, capacitor_voltages):
+def _initial_system(circuit, capacitor_voltages, inductor_currents):
     """Assemble the existing circuit and validate the initialization inputs."""
-    supported = (Resistor, Capacitor, VoltageSource, CurrentSource)
+    supported = (Resistor, Capacitor, VoltageSource, CurrentSource, Inductor)
     for element in circuit.elements:
         if type(element) not in supported:
             raise ValueError(
                 f"unsupported element {element.name!r}: "
-                "initialization currently supports linear RC circuits "
+                "initialization currently supports linear RLC circuits "
                 "with constant independent sources only"
             )
 
@@ -68,15 +70,24 @@ def _rc_system(circuit, capacitor_voltages):
         if minus is not None:
             B[minus, column] -= 1.0
 
+    inductors = [e for e in circuit.elements if isinstance(e, Inductor)]
+    currents = {} if inductor_currents is None else dict(inductor_currents)
+    if set(currents) != {e.name for e in inductors}:
+        raise ValueError("provide exactly one initial current per inductor")
+    inductor_rows = [circuit.node_map.get_branch_index(e.name) for e in inductors]
+    il = np.asarray([currents[e.name] for e in inductors], dtype=float)
+    if not np.all(np.isfinite(il)):
+        raise ValueError("initial inductor currents must be finite")
+
     # These rows enforce constant voltage sources: A_source @ xdot = 0.
     branch_rows = [
         circuit.node_map.get_branch_index(e.name)
         for e in circuit.elements if isinstance(e, VoltageSource)
     ]
-    return G, M, b, B, vc, names, branch_rows
+    return G, M, b, B, vc, names, branch_rows, inductor_rows, il
 
 
-def build_initial_state(circuit, capacitor_voltages):
+def build_initial_state(circuit, capacitor_voltages, *, inductor_currents=None):
     """Return a complete x0 in the existing NodeMap ordering.
 
     Example: build_initial_state(circuit, {"C1": 2.0}).
@@ -84,12 +95,18 @@ def build_initial_state(circuit, capacitor_voltages):
     circuit, so branch indices are available afterwards. Build x0 again if
     the circuit or its sources change. Negative capacitor voltages are valid.
     """
-    G, M, b, B, vc, names, branch_rows = _rc_system(
-        circuit, capacitor_voltages
+    G, M, b, B, vc, names, branch_rows, inductor_rows, il = _initial_system(
+        circuit, capacitor_voltages, inductor_currents
     )
     n, count = B.shape
     augmented = np.block([[G, B], [B.T, np.zeros((count, count))]])
     rhs = np.concatenate((b, vc))
+
+    # Fix iL(0) in place of the inductor's dynamic voltage equation.
+    # Its original KCL column still contributes the prescribed current.
+    augmented[inductor_rows, :] = 0.0
+    augmented[inductor_rows, inductor_rows] = 1.0
+    rhs[inductor_rows] = il
 
     # Row scaling helps balance KCL rows (amperes) and voltage constraints.
     scale = np.max(np.abs(augmented), axis=1)
@@ -104,7 +121,9 @@ def build_initial_state(circuit, capacitor_voltages):
         ) from error
 
     x0 = solution[:n]
-    report = check_initial_state(circuit, x0, capacitor_voltages)
+    report = check_initial_state(
+        circuit, x0, capacitor_voltages, inductor_currents=inductor_currents
+    )
     if not report["consistent"]:
         raise ValueError("initial-state check failed: " + "; ".join(report["issues"]))
     return x0
@@ -112,12 +131,12 @@ def build_initial_state(circuit, capacitor_voltages):
 
 def check_initial_state(
     circuit, x0, capacitor_voltages, *,
-    voltage_atol=1e-9, current_atol=1e-12,
+    inductor_currents=None, voltage_atol=1e-9, current_atol=1e-12,
     voltage_rate_atol=1e-9, rtol=1e-9,
 ):
-    """Report whether x0 satisfies the RC initial-state constraints.
+    """Report whether x0 satisfies the RLC initial-state constraints.
 
-    Checks the specified capacitor voltages and whether a derivative exists
+    Checks the specified capacitor voltages and inductor currents, and whether a derivative exists
     such that M @ xdot + G @ x0 = b. Constant voltage sources also require
     A_source @ xdot = 0. A transient initial state need not satisfy G @ x0=b.
 
@@ -129,8 +148,8 @@ def check_initial_state(
         if not np.isfinite(value) or value < 0:
             raise ValueError("tolerances must be finite and nonnegative")
 
-    G, M, b, B, vc, names, branch_rows = _rc_system(
-        circuit, capacitor_voltages
+    G, M, b, B, vc, names, branch_rows, inductor_rows, il = _initial_system(
+        circuit, capacitor_voltages, inductor_currents
     )
     x0 = np.asarray(x0, dtype=float)
     if x0.shape != b.shape or not np.all(np.isfinite(x0)):
@@ -153,7 +172,8 @@ def check_initial_state(
 
     residual = M @ xdot + G @ x0 - b
     row_atol = np.full(b.size, current_atol)
-    row_atol[branch_rows] = voltage_atol
+    voltage_rows = branch_rows + inductor_rows
+    row_atol[voltage_rows] = voltage_atol
     row_limits = row_atol + rtol * (
         np.abs(M) @ np.abs(xdot) + np.abs(G) @ np.abs(x0) + np.abs(b)
     )
@@ -161,11 +181,16 @@ def check_initial_state(
     source_rate_limits = voltage_rate_atol + rtol * (np.abs(A_source) @ np.abs(xdot))
 
     issues = []
+    for row, expected in zip(inductor_rows, il):
+        actual = x0[row]
+        limit = current_atol + rtol * max(abs(actual), abs(expected))
+        if abs(actual - expected) > limit:
+            issues.append(f"inductor branch {row}: initial current error {actual - expected:.6e} A")
     for name, error, limit in zip(names, cap_errors, cap_limits):
         if abs(error) > limit:
             issues.append(f"capacitor {name}: initial voltage error {error:.6e} V")
     for row in np.flatnonzero(np.abs(residual) > row_limits):
-        unit = "V" if row in branch_rows else "A"
+        unit = "V" if row in voltage_rows else "A"
         issues.append(f"MNA row {row}: residual {residual[row]:.6e} {unit}")
     if np.any(np.abs(source_rate_residual) > source_rate_limits):
         issues.append("derivative violates a constant voltage-source constraint")

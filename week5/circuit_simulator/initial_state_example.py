@@ -1,9 +1,10 @@
-"""Jianhao Wu -- worked examples of complete, consistent RC initial states.
+"""Jianhao Wu -- worked examples of complete, consistent RLC and RC initial states.
 
 Place this file and initial_state.py in week5/circuit_simulator alongside
 the existing components. Run: python initial_state_example.py
 
 Dependencies: numpy, scipy, matplotlib.
+Main example: a series inductor feeding a loaded two-stage capacitor ladder.
 Example 1: a single capacitor starting at 2 V rather than its DC equilibrium.
 Example 2: a loaded two-stage RC ladder with independently specified capacitor
 voltages. It checks both node current balances, compares backward Euler with
@@ -23,8 +24,9 @@ import numpy as np
 from scipy.linalg import expm
 
 from capacitor import Capacitor
+from inductor import Inductor
 from initial_state import build_initial_state, check_initial_state
-from linear_solvers import backward_euler
+from linear_solvers import ac_sweep, backward_euler, dc_solve
 from mna_assembler import MNAAssembler
 from resistor import Resistor
 from voltage_source import VoltageSource
@@ -452,10 +454,114 @@ def run_parameter_sweep():
     return summary
 
 
+def rlc_example():
+    """Check a two-capacitor ladder with nonzero initial inductor current."""
+    print("=== Main example: loaded two-stage RLC ladder ===")
+    vs, r1, r2, r3 = 10.0, 100.0, 2000.0, 3000.0
+    l1, c1, c2 = 0.04, 1e-6, 2e-6
+    circuit = MNAAssembler()
+    for element in (
+        VoltageSource("Vs", "in", "0", vs),
+        Resistor("R1", "in", "p", r1),
+        Inductor("L1", "p", "A", l1),
+        Capacitor("C1", "A", "0", c1),
+        Resistor("R2", "A", "B", r2),
+        Capacitor("C2", "B", "0", c2),
+        Resistor("R3", "B", "0", r3),
+    ):
+        circuit.add_element(element)
+
+    vc, il = {"C1": 2.0, "C2": 1.0}, {"L1": 0.004}
+    x0 = build_initial_state(circuit, vc, inductor_currents=il)
+    report = check_initial_state(circuit, x0, vc, inductor_currents=il)
+    print_state(circuit, x0)
+    np.testing.assert_allclose(x0, [10.0, 9.6, 2.0, 1.0, -0.004, 0.004])
+    g, m, b = circuit.assemble_system()
+    node = circuit.node_map.get_index
+    branch = circuit.node_map.get_branch_index
+    indices = [node("A"), node("B"), branch("L1")]
+    np.testing.assert_allclose(report["xdot"][indices], [3500.0, 250.0 / 3.0, 190.0])
+    wrong = x0.copy()
+    wrong[branch("L1")] = 0.0
+    if check_initial_state(circuit, wrong, vc, inductor_currents=il)["consistent"]:
+        raise AssertionError("incorrect inductor initial current was accepted")
+
+    # Independent ODE in [VA, VB, IL], derived from KCL and KVL.
+    a = np.array([
+        [-1 / (r2 * c1), 1 / (r2 * c1), 1 / c1],
+        [1 / (r2 * c2), -(1 / r2 + 1 / r3) / c2, 0],
+        [-1 / l1, 0, -r1 / l1],
+    ])
+    steady = np.linalg.solve(a, [0.0, 0.0, -vs / l1])
+    dc = dc_solve(g, b)
+    np.testing.assert_allclose(dc[indices], steady)
+    previous_error = None
+    for dt in (20e-6, 10e-6, 5e-6, 2.5e-6, 1.25e-6):
+        t, x = backward_euler(g, m, lambda time: b, x0, dt, 0.025)
+        transition = expm(a * dt)
+        reference = np.empty((len(t), 3))
+        reference[0] = x0[indices]
+        for k in range(1, len(t)):
+            reference[k] = steady + transition @ (reference[k - 1] - steady)
+        error = x[:, indices] - reference
+        metrics = np.stack((np.max(np.abs(error), axis=0), np.sqrt(np.mean(error**2, axis=0))))
+        if previous_error is not None and not np.all(metrics < previous_error):
+            raise AssertionError("RLC errors did not decrease under step refinement")
+        previous_error = metrics
+        print(f"  dt={dt * 1e6:g} us | max [V, V, A]: {metrics[0]} | RMS: {metrics[1]}")
+
+    # Unit small-signal excitation and an independent complex impedance check.
+    frequency = np.geomspace(10.0, 100_000.0, 401)
+    excitation = np.zeros_like(b)
+    excitation[branch("Vs")] = 1.0
+    phasors = ac_sweep(g, m, excitation, frequency)
+    s = 2j * np.pi * frequency
+    z_b = 1 / (1 / r3 + s * c2)
+    z_a = 1 / (s * c1 + 1 / (r2 + z_b))
+    exact_gain = z_a / (r1 + s * l1 + z_a) * z_b / (r2 + z_b)
+    gain = phasors[:, node("B")]
+    np.testing.assert_allclose(gain, exact_gain, rtol=1e-10, atol=1e-12)
+    print(f"  AC complex gain matches impedance reference at {len(frequency)} frequencies")
+    print(f"  Peak |V(B)/V(in)| = {max(abs(gain)):.4f} at {frequency[np.argmax(abs(gain))]:.1f} Hz")
+    print("RLC initialization, DC, AC, and transient checks passed.")
+
+    import matplotlib.pyplot as plt
+
+    folder = Path(__file__).resolve().parent
+    for filename, columns, scale, ylabel, limit in (
+        ("initial_state_rlc_voltages.png", (0, 1), 1, "Node voltage (V)", 6),
+        ("initial_state_rlc_current.png", (2,), 1000, "Inductor current (mA)", 6),
+    ):
+        fig, ax = plt.subplots(figsize=(8, 3))
+        for j in columns:
+            label = ("V(A)", "V(B)", "I(L1)")[j]
+            line, = ax.plot(t * 1000, x[:, indices[j]] * scale, label=f"{label}, Backward Euler")
+            ax.plot(t * 1000, reference[:, j] * scale, "--", color=line.get_color(), alpha=0.7,
+                    label=f"{label}, reference")
+        ax.set(xlabel="Time (ms)", ylabel=ylabel, xlim=(0, limit))
+        ax.grid(alpha=0.25)
+        ax.legend()
+        fig.savefig(folder / filename, bbox_inches="tight", dpi=160)
+        plt.close(fig)
+    fig, ax = plt.subplots(figsize=(8, 3))
+    ax.semilogx(frequency, 20 * np.log10(np.abs(gain)))
+    ax.set(xlabel="Frequency (Hz)", ylabel="Output gain (dB)")
+    ax.grid(which="both", alpha=0.25)
+    fig.savefig(folder / "initial_state_rlc_ac.png", bbox_inches="tight", dpi=160)
+    plt.close(fig)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--sweep-only", action="store_true", help="run the 50-case matrix without the worked demonstrations")
+    parser.add_argument("--rlc-only", action="store_true", help="run only the RLC demonstration")
     args = parser.parse_args()
+    if args.rlc_only and args.sweep_only:
+        parser.error("choose either --rlc-only or --sweep-only")
+    if not args.sweep_only:
+        rlc_example()
+    if args.rlc_only:
+        return
     if not args.sweep_only:
         simple_rc_example()
         loaded_rc_example()

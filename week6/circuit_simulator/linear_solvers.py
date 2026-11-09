@@ -110,7 +110,7 @@ def trapezoidal_rule(G, M, source_at, x0, dt, tstop):
     A = (G + history_matrix).tocsc()
     lu = splu(A)              # Constant linear circuit + fixed dt: factor only once.
     for n in range(1, steps + 1):
-        b = np.asarray(source_at(t[n]), dtype=float).reshape(-1)
+        b = np.asarray(source_at(t[n]), dtype=float).reshape(-1).copy()
         b_last = np.asarray(source_at(t[n-1]), dtype=float).reshape(-1)
         if b.size != x0.size or b_last.size != x0.size or not np.all(np.isfinite(b)) or not np.all(np.isfinite(b_last)):
             raise ValueError("source_at must return a finite length-N vector.")

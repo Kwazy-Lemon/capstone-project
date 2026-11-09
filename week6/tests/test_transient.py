@@ -43,14 +43,26 @@ def main():
     h_values = [tau / 10, tau / 20, tau / 40, tau / 80, tau / 160]
     methods = [("BE", backward_euler), ("TR", trapezoidal_rule)]
 
+    def analytical_voltage(time):
+        return Vin + (v0 - Vin) * np.exp(-time / tau)
+
     # 3. Compare each numerical solution with the analytical voltage.
     output_file = Path(__file__).with_name("test_transient_summary.csv")
     waveform_file = Path(__file__).with_name("test_transient_waveforms.csv")
+    single_step_file = Path(__file__).with_name("test_transient_single_step_errors.csv")
     summary_rows = []
     waveform_rows = []
+    single_step_rows = []
+    v_exact_end = analytical_voltage(comparison_time)
 
     for h in h_values:
         sample_index = round(comparison_time / h)
+        step_start_time = comparison_time - h
+        v_exact_start = analytical_voltage(step_start_time)
+        x_step_start = x0.copy()
+        x_step_start[node_out] = v_exact_start
+        x_step_start[source_current] = -(Vin - v_exact_start) / R
+
         for method, solve in methods:
             t, X = solve(G, M, lambda time: b, x0, h, tstop)
             if sample_index >= len(t) or not np.isclose(
@@ -59,7 +71,7 @@ def main():
                 raise ValueError(f"h={h:g} s does not sample t={comparison_time:g} s.")
 
             v_numerical = X[:, node_out]
-            v_analytical = Vin + (v0 - Vin) * np.exp(-t / tau)
+            v_analytical = analytical_voltage(t)
 
             abs_error = np.abs(v_numerical - v_analytical)
             max_error = np.max(abs_error)
@@ -69,6 +81,14 @@ def main():
 
             for i in range(len(t)):
                 waveform_rows.append([h, method, t[i], v_analytical[i], v_numerical[i], abs_error[i]])
+
+            # Restart from the exact state and take one step to 2 ms.
+            _, X_step = solve(G, M, lambda time: b, x_step_start, dt=h, tstop=h)
+            v_step_end = X_step[1, node_out]
+            single_step_rows.append([
+                h, method, step_start_time, comparison_time, v_exact_start,
+                v_exact_end, v_step_end, abs(v_step_end - v_exact_end)
+            ])
 
     with output_file.open("w", newline="", encoding="utf-8") as file:
         writer = csv.writer(file)
@@ -82,8 +102,17 @@ def main():
         ])
         writer.writerows(waveform_rows)
 
+    with single_step_file.open("w", newline="", encoding="utf-8") as file:
+        writer = csv.writer(file)
+        writer.writerow([
+            "h_s", "method", "start_time_s", "end_time_s", "analytical_start_voltage_V",
+            "analytical_end_voltage_V", "numerical_end_voltage_V", "abs_error_V"
+        ])
+        writer.writerows(single_step_rows)
+
     print(f"Summary saved to {output_file}")
     print(f"Waveform data saved to {waveform_file}")
+    print(f"Single-step errors saved to {single_step_file}")
 
 
 if __name__ == "__main__":

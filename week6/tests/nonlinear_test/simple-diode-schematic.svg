@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 380" width="680" height="380" role="img" aria-labelledby="title desc">
+  <title id="title">Resistor–diode DC test circuit</title>
+  <desc id="desc">A 5 volt source feeds a 1 kiloohm resistor and a forward-biased diode connected to ground. The diode anode is at 0.3966 volts and the current is 4.6034 milliamperes.</desc>
+  <rect width="680" height="380" fill="white"/>
+  <g fill="#15243b" font-family="Arial, sans-serif">
+    <text x="340" y="39" text-anchor="middle" font-size="23" font-weight="bold">Resistor–diode DC test circuit</text>
+    <text x="255" y="131" text-anchor="middle" font-size="18">R₁ = 1 kΩ</text>
+    <text x="455" y="132" text-anchor="middle" font-size="17" fill="#155caa">Vout = 0.3966 V</text>
+    <text x="64" y="230" text-anchor="end" font-size="18">5 V</text>
+    <text x="480" y="221" font-size="18">D₁</text>
+    <text x="480" y="247" font-size="15">Cathode toward ground</text>
+    <text x="331" y="360" font-size="16">Ground (0 V)</text>
+    <text x="260" y="75" text-anchor="middle" font-size="17" fill="#155caa">I = 4.6034 mA</text>
+  </g>
+  <g fill="none" stroke="#15243b" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M113 197 V157 H204 l9 -10 14 20 14 -20 14 20 14 -20 14 20 14 -20 9 10 H455 V206"/>
+    <circle cx="113" cy="226" r="29"/>
+    <path d="M106 216 h14 m-7 -7 v14 M106 239 h14"/>
+    <path d="M113 255 V310 H455 V235"/>
+    <path d="M442 206 H468 L455 235 Z M442 235 H468"/>
+    <path d="M300 310 v16 m-15 0 h30 m-10 7 h20 m-15 7 h10"/>
+  </g>
+  <g fill="#15243b">
+    <circle cx="455" cy="157" r="4.5"/>
+    <circle cx="300" cy="310" r="4.5"/>
+  </g>
+  <path d="M211 91 H309 M300 85 l9 6 -9 6" fill="none" stroke="#155caa" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

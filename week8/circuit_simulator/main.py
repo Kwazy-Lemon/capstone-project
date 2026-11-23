@@ -8,13 +8,7 @@ from resistor import Resistor
 from voltage_source import VoltageSource
 
 
-def main():
-    # define circuit parameters
-    source_voltage = 10.0
-    r1 = 1000.0
-    r2 = 2000.0
-
-    # create the circuit
+def build_voltage_divider(source_voltage, r1, r2):
     circuit = MNAAssembler()
 
     circuit.add_element(
@@ -26,6 +20,14 @@ def main():
     circuit.add_element(
         Resistor("R2", "out", "gnd", r2)
     )
+    return circuit
+
+
+def main():
+    source_voltage = 10.0
+    r1 = 1000.0
+    r2 = 2000.0
+    circuit = build_voltage_divider(source_voltage, r1, r2)
 
     # assemble the dc equation
     g_matrix, b = circuit.assemble()

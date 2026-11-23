@@ -3,6 +3,9 @@
 import numpy as np
 
 from benchmark_circuits import build_simple_rc, build_rc_ladder
+from controlled_sources import VCVS
+from linear_solvers import ac_sweep, dc_solve
+from main import build_voltage_divider
 from mna_assembler import MNAAssembler
 from resistor import Resistor
 from capacitor import Capacitor
@@ -30,6 +33,7 @@ def check_system(name, circuit, nodes, branches, expected_g, expected_m, expecte
     np.testing.assert_allclose(m.toarray(), expected_m, rtol=1e-12, atol=1e-15)
     np.testing.assert_allclose(b, expected_b, rtol=1e-12, atol=1e-15)
     print(f"{name}: PASS (nodes={node_count}, branches={len(branches)}, size={size})")
+    return g, m, b
 
 
 def check_components():
@@ -63,6 +67,15 @@ def check_benchmarks():
     conductance = 1 / 1000.0
     capacitance = 1e-6
 
+    check_system(
+        "Voltage divider", build_voltage_divider(10.0, 1000.0, 2000.0),
+        ["in", "out"], ["Vs"],
+        [[0.001, -0.001, 1],
+         [-0.001, 0.0015, 0],
+         [1, 0, 0]],
+        np.zeros((3, 3)), [0, 0, 10],
+    )
+
     # Unknown order: V(in), V(out), I(Vs).
     check_system(
         "Simple RC", build_simple_rc(), ["in", "out"], ["Vs"],
@@ -88,6 +101,48 @@ def check_benchmarks():
     )
 
 
+def check_vcvs_feedback():
+    # Buffer the RC node with a finite-gain VCVS and direct negative feedback.
+    resistance = 1000.0
+    capacitance = 1e-6
+    gain = 1000.0
+    conductance = 1 / resistance
+    circuit = MNAAssembler()
+    circuit.add_element(VoltageSource("Vs", "in", "0", 1.0))
+    circuit.add_element(Resistor("R1", "in", "rc", resistance))
+    circuit.add_element(Capacitor("C1", "rc", "0", capacitance))
+    circuit.add_element(VCVS("E1", "out", "0", "rc", "out", gain))
+
+    # V(out) - gain * (V(rc) - V(out)) = 0.
+    g, m, b = check_system(
+        "VCVS negative-feedback RC low-pass", circuit,
+        ["in", "rc", "out"], ["Vs", "E1"],
+        [[conductance, -conductance, 0, 1, 0],
+         [-conductance, conductance, 0, 0, 0],
+         [0, 0, 0, 0, 1],
+         [1, 0, 0, 0, 0],
+         [0, -gain, 1 + gain, 0, 0]],
+        np.diag([0, capacitance, 0, 0, 0]), [0, 0, 0, 1, 0],
+    )
+
+    input_index = circuit.node_map.get_index("in")
+    output_index = circuit.node_map.get_index("out")
+    dc = dc_solve(g, b)
+    closed_loop_gain = gain / (1 + gain)
+    np.testing.assert_allclose(
+        dc[output_index] / dc[input_index], closed_loop_gain, rtol=1e-12,
+    )
+
+    cutoff_hz = 1 / (2 * np.pi * resistance * capacitance)
+    ac_source = np.array([0, 0, 0, 1, 0], dtype=complex)
+    ac = ac_sweep(g, m, ac_source, [cutoff_hz])
+    np.testing.assert_allclose(
+        ac[0, output_index] / ac[0, input_index],
+        closed_loop_gain / (1 + 1j), rtol=1e-12,
+    )
+    print("VCVS closed-loop DC gain and cutoff response: PASS")
+
+
 def check_addition():
     circuit = MNAAssembler()
     circuit.add_element(Resistor("R1", "out", "gnd", 1000.0))
@@ -107,5 +162,6 @@ def check_addition():
 if __name__ == "__main__":
     check_components()
     check_benchmarks()
+    check_vcvs_feedback()
     check_addition()
     print("All assembly checks passed.")

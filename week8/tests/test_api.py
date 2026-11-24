@@ -7,7 +7,10 @@ import unittest
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "circuit_simulator"))
-from api import Capacitor, Circuit, CurrentSource, Resistor, VCVS, VoltageSource
+from api import (
+    Capacitor, CCCS, CCVS, Circuit, CurrentSource, Inductor,
+    Resistor, Result, VCCS, VCVS, VoltageSource,
+)
 
 
 class TestCircuitAPI(unittest.TestCase):
@@ -126,6 +129,130 @@ class TestCircuitAPI(unittest.TestCase):
         for name in ["missing", "R1"]:
             with self.subTest(name=name), self.assertRaises(ValueError):
                 circuit.ac([100.0], sources={name: 1.0})
+
+    def test_inductor_dc_and_ac(self):
+        circuit = Circuit()
+        circuit.add(VoltageSource("Vs", "in", "gnd", 2.0))
+        circuit.add(Resistor("R1", "in", "out", 100.0))
+        circuit.add(Inductor("L1", "out", "gnd", 0.01))
+
+        dc = circuit.dc()
+        self.assertIsInstance(dc, Result)
+        self.assertAlmostEqual(dc.voltage("out"), 0.0)
+        self.assertAlmostEqual(dc.current("L1"), 0.02)
+
+        # Preserve the requested frequency order, including repeated points.
+        frequencies = np.array([1000.0, 10.0, 1000.0])
+        z_l = 2j * np.pi * frequencies * 0.01
+        current = (1 + 2j) / (100 + z_l)
+        ac = circuit.ac(frequencies, {"Vs": 1 + 2j})
+        self.assertIsInstance(ac, Result)
+        np.testing.assert_allclose(ac.current("L1"), current)
+        np.testing.assert_allclose(ac.voltage("out"), z_l * current)
+
+    def test_vccs_differential_control(self):
+        circuit = Circuit()
+        circuit.add(VoltageSource("Vp", "p", "0", 3.0))
+        circuit.add(VoltageSource("Vn", "n", "0", 1.0))
+        circuit.add(VCCS("G1", "out", "0", "p", "n", 0.002))
+        circuit.add(Resistor("RL", "out", "0", 1000.0))
+
+        # Vout = -RL * gm * (Vp - Vn).
+        self.assertAlmostEqual(circuit.dc().voltage("out"), -4.0)
+        ac = circuit.ac([100], {"Vp": 1 + 1j, "Vn": 2j})
+        np.testing.assert_allclose(ac.voltage("out"), [-2 + 2j])
+
+    def test_cccs_branch_control(self):
+        circuit = Circuit()
+        # Refer to the controlling branch before adding it.
+        circuit.add(CCCS("F1", "out", "0", "Vs", 3.0))
+        circuit.add(Resistor("RL", "out", "0", 2000.0))
+        circuit.add(VoltageSource("Vs", "in", "0", 2.0))
+        circuit.add(Resistor("Rin", "in", "0", 1000.0))
+
+        # I(Vs) = -Vin / Rin and Vout = -RL * 3 * I(Vs).
+        dc = circuit.dc()
+        self.assertAlmostEqual(dc.current("Vs"), -0.002)
+        self.assertAlmostEqual(dc.voltage("out"), 12.0)
+        ac = circuit.ac([100], {"Vs": 1j})
+        np.testing.assert_allclose(ac.voltage("out"), [6j])
+
+    def test_ccvs_branch_control(self):
+        circuit = Circuit()
+        circuit.add(CCVS("H1", "out", "0", "Vs", 500.0))
+        circuit.add(Resistor("RL", "out", "0", 2000.0))
+        circuit.add(VoltageSource("Vs", "in", "0", 2.0))
+        circuit.add(Resistor("Rin", "in", "0", 1000.0))
+
+        # Vout = 500 ohms * I(Vs) and I(H1) = -Vout / RL.
+        dc = circuit.dc()
+        self.assertAlmostEqual(dc.voltage("out"), -1.0)
+        self.assertAlmostEqual(dc.current("H1"), 0.0005)
+        ac = circuit.ac([100], {"Vs": 1j})
+        np.testing.assert_allclose(ac.voltage("out"), [-0.5j])
+        np.testing.assert_allclose(ac.current("H1"), [0.00025j])
+
+    def test_dc_current_source_and_unexcited_ac(self):
+        circuit = Circuit()
+        circuit.add(CurrentSource("Is", "GND", "out", 0.003))
+        circuit.add(Resistor("R1", "out", "0", 2000.0))
+        self.assertAlmostEqual(circuit.dc().voltage("out"), 6.0)
+        ac = circuit.ac([10, 20], {})
+        np.testing.assert_array_equal(ac.voltage("out"), [0.0, 0.0])
+        np.testing.assert_array_equal(ac.voltage("GND"), [0.0, 0.0])
+
+    def test_saved_results_after_adding_components(self):
+        circuit = Circuit()
+        circuit.add(VoltageSource("Vs", "in", "0", 1.0))
+        circuit.add(Resistor("R1", "in", "0", 1000.0))
+        before = circuit.dc()
+        # A new node moves the source-current index when the circuit is reassembled.
+        circuit.add(Resistor("R2", "in", "new", 500.0))
+        circuit.add(Resistor("R3", "new", "0", 500.0))
+        after = circuit.dc()
+        self.assertAlmostEqual(after.voltage("new"), 0.5)
+        self.assertAlmostEqual(after.current("Vs"), -0.002)
+        self.assertAlmostEqual(before.current("Vs"), -0.001)
+        with self.assertRaises(KeyError):
+            before.voltage("new")
+
+    def test_invalid_result_names(self):
+        circuit = Circuit()
+        circuit.add(VoltageSource("Vs", "in", "0", 1.0))
+        circuit.add(Resistor("R1", "in", "0", 1000.0))
+        for result in [circuit.dc(), circuit.ac([100], {"Vs": 1.0})]:
+            with self.assertRaises(KeyError):
+                result.voltage("missing")
+            with self.assertRaises(KeyError):
+                result.current("R1")  # No MNA branch current for a resistor.
+
+    def test_invalid_sweep_inputs(self):
+        circuit = Circuit()
+        circuit.add(VoltageSource("Vs", "in", "0", 1.0))
+        for frequencies in [[], [0], [-1], [np.nan], [np.inf], [[100]]]:
+            with self.subTest(frequencies=frequencies), self.assertRaises(ValueError):
+                circuit.ac(frequencies, {"Vs": 1.0})
+        for phasor in [np.nan, np.inf]:
+            with self.subTest(phasor=phasor), self.assertRaises(ValueError):
+                circuit.ac([100], {"Vs": phasor})
+
+    def test_duplicate_name_preserves_circuit(self):
+        circuit = Circuit()
+        circuit.add(VoltageSource("Vs", "in", "0", 1.0))
+        circuit.add(Resistor("R1", "in", "0", 1000.0))
+        with self.assertRaises(ValueError):
+            circuit.add(Resistor("R1", "in", "0", 500.0))
+        self.assertAlmostEqual(circuit.dc().current("Vs"), -0.001)
+
+    def test_missing_control_branch(self):
+        for element in [CCCS("F1", "out", "0", "missing", 2.0),
+                        CCVS("H1", "out", "0", "missing", 500.0)]:
+            with self.subTest(source=element.name):
+                circuit = Circuit()
+                circuit.add(Resistor("RL", "out", "0", 1000.0))
+                circuit.add(element)
+                with self.assertRaises(ValueError):
+                    circuit.dc()
 
 
 if __name__ == "__main__":

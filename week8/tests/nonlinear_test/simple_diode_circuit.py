@@ -6,7 +6,7 @@ import sys
 
 import numpy as np
 
-# Use the Week 6 simulator modules when running from the tests folder.
+# Use the Week 8 simulator modules when running from the tests folder.
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "circuit_simulator"))
 
 from mna_assembler import MNAAssembler
@@ -39,7 +39,7 @@ def main():
     # MNA ordering for this circuit: input voltage, diode voltage, source current.
     initial_source_current = -(supply_voltage - initial_diode_voltage) / resistance
     x0 = [supply_voltage, initial_diode_voltage, initial_source_current]
-    x = NonlinearSolver(circuit).solve(
+    x = NonlinearSolver(circuit).solve_dc(
         max_iter=100, tol=voltage_tol, residual_tol=current_tol, x0=x0
     )
 
